@@ -1,0 +1,17 @@
+{
+  "sponsors": [
+    { "name": "freepik", "url": "https://freepik.com", "logo": "https://images.seeklogo.com/logo-png/40/1/freepik-logo-png_seeklogo-406311.png" },
+    { "name": "cursor", "url": "https://cursor.com", "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTrQ_CU3a6muH84mLfoP6xmM4ZJ9Z6RAXMmdA&s" },
+    { "name": "piggylink.me", "url": "https://piggylink.me", "logo": "https://piggylink.me/assets/img/logo.webp" },
+    { "name": "piggytip.me", "url": "https://piggytip.me", "logo": "https://piggytip.me/img/logo.webp" },
+    { "name": "sponsor", "url": "sponsor.php", "logo": "./img/piggy.webp" },
+    { "name": "sponsor", "url": "sponsor.php", "logo": "./img/piggy.webp" },
+    { "name": "sponsor", "url": "sponsor.php", "logo": "./img/piggy.webp" },
+    { "name": "sponsor", "url": "sponsor.php", "logo": "./img/piggy.webp" }
+  ],
+  "settings": {
+    "title": "Our Amazing Sponsors",
+    "subtitle": "Thanks to our sponsors who make Pork.li possible!",
+    "enabled": true
+  }
+}

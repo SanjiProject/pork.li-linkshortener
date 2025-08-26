@@ -1,0 +1,92 @@
+RewriteEngine On
+
+# Directory Index Configuration - prioritize PHP files
+DirectoryIndex index.php index.html index.htm
+
+# aaPanel and general server compatibility
+# Handle both subdirectory and root installations
+
+# Security headers (compatible with XAMPP Apache)
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Prevent access to sensitive files
+<Files "*.env">
+    <RequireAll>
+        Require all denied
+    </RequireAll>
+</Files>
+
+
+
+<FilesMatch "\.(ini|log|conf|sql)$">
+    <RequireAll>
+        Require all denied
+    </RequireAll>
+</FilesMatch>
+
+# Short link redirection - must come first
+# Handle both root directory and subdirectory installations
+# Updated to support custom codes (3-50 chars, letters, numbers, hyphens, underscores)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^.*/(api|public|config|includes|dashboard|admin)/.*$
+RewriteCond %{REQUEST_URI} ^.*/([a-zA-Z0-9_-]{3,50})/?$
+RewriteRule ^([a-zA-Z0-9_-]{3,50})/?$ redirect.php?code=$1 [L,QSA]
+
+# Alternative pattern for root installation
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} ^/([a-zA-Z0-9_-]{3,50})/?$
+RewriteCond %{REQUEST_URI} !^/(api|public|config|includes|dashboard|admin)/
+RewriteRule ^([a-zA-Z0-9_-]{3,50})/?$ redirect.php?code=$1 [L,QSA]
+
+# Clean URLs for pages - XAMPP compatible
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^login/?$ login.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^register/?$ register.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^dashboard/?$ dashboard/index.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^admin/?$ admin/index.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^settings/?$ settings/index.php [L]
+
+# Enable compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+</IfModule>
+
+# Browser caching
+<IfModule mod_expires.c>
+    ExpiresActive on
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+</IfModule> 

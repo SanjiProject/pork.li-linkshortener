@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+
+# Disallow sensitive areas
+Disallow: /api/
+Disallow: /config/
+Disallow: /includes/
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /settings/
+Disallow: /login.php
+Disallow: /register.php
+Disallow: /sponsor.php
+
+# Allow public assets
+Allow: /public/
+
+# Crawl delay for better server performance
+Crawl-delay: 1
+
+# Sitemaps
+Sitemap: https://pork.li/sitemap.xml 
