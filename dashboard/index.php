@@ -158,6 +158,15 @@ $activeLinks = $stmt->fetchColumn();
                     </div>
 
                     <div class="form-group">
+                        <label class="form-label" for="password">🔒 Private Link Password (Optional)</label>
+                        <input type="password" id="password" name="password" 
+                               class="form-input" 
+                               placeholder="Set a password to make this link private" 
+                               maxlength="100">
+                        <small class="form-help">If set, users will need to enter this password before accessing the link. Leave empty for public access.</small>
+                    </div>
+
+                    <div class="form-group">
                         <label class="form-label">We need to check if you’re human. Oink twice if you’re a pig.🐷</label>
                         <div class="captcha-container">
                             <div class="captcha-question">
@@ -250,6 +259,9 @@ $activeLinks = $stmt->fetchColumn();
                                             if ($isCustom): ?>
                                                 <span class="custom-badge">Custom</span>
                                             <?php endif; ?>
+                                            <?php if (!empty($link['has_password'])): ?>
+                                                <span class="private-badge" title="Password Protected">🔒 Private</span>
+                                            <?php endif; ?>
                                         </td>
                                         <td>
                                             <div class="destinations-preview" 
@@ -280,8 +292,16 @@ $activeLinks = $stmt->fetchColumn();
                                             <button class="btn btn-sm btn-secondary edit-link" 
                                                     data-link-id="<?php echo $link['id']; ?>"
                                                     data-destinations='<?php echo json_encode($link['destinations']); ?>'
-                                                    data-rotation-type="<?php echo $link['rotation_type']; ?>">
+                                                    data-rotation-type="<?php echo $link['rotation_type']; ?>"
+                                                    data-has-password="<?php echo !empty($link['has_password']) ? 'true' : 'false'; ?>">
                                                 Edit
+                                            </button>
+                                            <button class="btn btn-sm btn-warning manage-password" 
+                                                    data-link-id="<?php echo $link['id']; ?>"
+                                                    data-short-code="<?php echo $link['short_code']; ?>"
+                                                    data-has-password="<?php echo !empty($link['has_password']) ? 'true' : 'false'; ?>"
+                                                    title="Manage Password Protection">
+                                                🔒 Password
                                             </button>
                                             <button class="btn btn-sm btn-danger delete-link" 
                                                     data-link-id="<?php echo $link['id']; ?>">
@@ -321,6 +341,7 @@ $activeLinks = $stmt->fetchColumn();
     </main>
 
     <script src="../public/script.js"></script>
+    <script src="../mobile-touch-fix.js"></script>
     <script>
         // Initialize dashboard analytics
         document.addEventListener('DOMContentLoaded', function() {
@@ -331,15 +352,29 @@ $activeLinks = $stmt->fetchColumn();
                     const shortCode = e.target.dataset.shortCode;
                     showAnalytics(linkId, shortCode);
                 }
+                
+                // Password management buttons
+                if (e.target.classList.contains('manage-password')) {
+                    const linkId = e.target.dataset.linkId;
+                    const shortCode = e.target.dataset.shortCode;
+                    const hasPassword = e.target.dataset.hasPassword === 'true';
+                    showPasswordManager(linkId, shortCode, hasPassword);
+                }
             });
         });
 
         function showAnalytics(linkId, shortCode) {
             const baseUrl = getBaseUrl();
             
+            // Remove any existing analytics modals
+            const existingModal = document.querySelector('.analytics-modal-overlay');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
             // Create analytics modal
             const modal = document.createElement('div');
-            modal.className = 'edit-modal-overlay';
+            modal.className = 'edit-modal-overlay analytics-modal-overlay';
             modal.innerHTML = `
                 <div class="edit-modal analytics-modal">
                     <div class="edit-modal-header">
@@ -359,7 +394,15 @@ $activeLinks = $stmt->fetchColumn();
             document.body.appendChild(modal);
 
             // Close modal functionality
-            const closeModal = () => document.body.removeChild(modal);
+            const closeModal = () => {
+                try {
+                    if (modal && modal.parentNode === document.body) {
+                        document.body.removeChild(modal);
+                    }
+                } catch (error) {
+                    console.log('Modal already removed or not found');
+                }
+            };
             modal.querySelector('.edit-modal-close').addEventListener('click', closeModal);
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) closeModal();
@@ -431,6 +474,142 @@ $activeLinks = $stmt->fetchColumn();
                     document.getElementById('analytics-content').innerHTML = 
                         '<div class="alert alert-error">Network error loading analytics</div>';
                 });
+        }
+
+        function showPasswordManager(linkId, shortCode, hasPassword) {
+            const baseUrl = getBaseUrl();
+            
+            // Remove any existing password modals
+            const existingModal = document.querySelector('.password-modal-overlay');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Create password management modal
+            const modal = document.createElement('div');
+            modal.className = 'edit-modal-overlay password-modal-overlay';
+            modal.innerHTML = `
+                <div class="edit-modal password-modal">
+                    <div class="edit-modal-header">
+                        <h3>🔒 Manage Password Protection for /${shortCode}</h3>
+                        <button class="edit-modal-close">&times;</button>
+                    </div>
+                    <div class="edit-modal-body">
+                        <div class="password-status">
+                            <p><strong>Current Status:</strong> 
+                                <span class="status-indicator ${hasPassword ? 'protected' : 'public'}">
+                                    ${hasPassword ? '🔒 Password Protected' : '🌐 Public Access'}
+                                </span>
+                            </p>
+                        </div>
+                        
+                        <div class="password-actions">
+                            <div class="form-group">
+                                <label class="form-label">Action:</label>
+                                <select id="password-action-${linkId}" class="form-input">
+                                    ${hasPassword ? 
+                                        '<option value="keep">Keep current password</option><option value="change">Change password</option><option value="remove">Remove password protection</option>' :
+                                        '<option value="none">No password protection</option><option value="add">Add password protection</option>'
+                                    }
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" id="password-input-group-${linkId}" style="display: none;">
+                                <label class="form-label" for="new-password-${linkId}">New Password:</label>
+                                <input type="password" id="new-password-${linkId}" class="form-input" 
+                                       placeholder="Enter new password (min 4 characters)" minlength="4">
+                                <small class="form-help">Minimum 4 characters required</small>
+                            </div>
+                        </div>
+                        
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="save-password">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Handle action selection
+            const actionSelect = document.getElementById('password-action-' + linkId);
+            const passwordGroup = document.getElementById('password-input-group-' + linkId);
+            
+            if (actionSelect && passwordGroup) {
+                actionSelect.addEventListener('change', function() {
+                    const action = this.value;
+                    if (action === 'change' || action === 'add') {
+                        passwordGroup.style.display = 'block';
+                    } else {
+                        passwordGroup.style.display = 'none';
+                    }
+                });
+            }
+
+            // Close modal functionality
+            window.closePasswordModal = () => {
+                try {
+                    if (modal && modal.parentNode === document.body) {
+                        document.body.removeChild(modal);
+                    }
+                } catch (error) {
+                    console.log('Modal already removed or not found');
+                }
+            };
+            modal.querySelector('.edit-modal-close').addEventListener('click', closePasswordModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closePasswordModal();
+            });
+
+            // Save password changes
+            const savePasswordBtn = document.getElementById('save-password');
+            if (savePasswordBtn) {
+                savePasswordBtn.addEventListener('click', function() {
+                    const action = actionSelect ? actionSelect.value : '';
+                    const newPasswordInput = document.getElementById('new-password-' + linkId);
+                    const newPassword = newPasswordInput ? newPasswordInput.value : '';
+                
+                if ((action === 'change' || action === 'add') && newPassword.length < 4) {
+                    alert('Password must be at least 4 characters long');
+                    return;
+                }
+                
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('csrf_token', '<?php echo generateCSRFToken(); ?>');
+                formData.append('link_id', linkId);
+                
+                if (action === 'add' || action === 'change') {
+                    formData.append('action', action === 'add' ? 'add' : 'change');
+                    formData.append('new_password', newPassword);
+                } else if (action === 'remove') {
+                    formData.append('action', 'remove');
+                }
+                
+                if (action !== 'keep' && action !== 'none') {
+                    // Save changes
+                    fetch(baseUrl + '/api/manage-password.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            closePasswordModal();
+                            location.reload(); // Refresh to show updated status
+                        } else {
+                            alert('Error: ' + (data.error || 'Failed to update password'));
+                        }
+                    })
+                    .catch(error => {
+                        alert('Network error: ' + error.message);
+                    });
+                } else {
+                    closePasswordModal();
+                }
+                });
+            }
         }
 
         function getBaseUrl() {

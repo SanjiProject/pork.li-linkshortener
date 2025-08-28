@@ -95,5 +95,6 @@ if (isLoggedIn()) {
     </main>
 
     <script src="public/script.js"></script>
+    <script src="mobile-touch-fix.js"></script>
 </body>
 </html> 

@@ -2,8 +2,8 @@
 // Database configuration for aaPanel
 // Update these settings according to your aaPanel database configuration
 define('DB_HOST', 'localhost');
-define('DB_USER', 'root'); // Update with your aaPanel MySQL username
-define('DB_PASS', ''); // Update with your aaPanel MySQL password
+define('DB_USER', 'porkli'); // Update with your aaPanel MySQL username
+define('DB_PASS', 'KPy4eBGCY2TG4wbF'); // Update with your aaPanel MySQL password
 define('DB_NAME', 'porkli'); // Update with your database name
 define('DB_PORT', '3306'); // Default MySQL port
 
@@ -69,6 +69,7 @@ function initializeDatabase() {
         user_id INT NULL,
         short_code VARCHAR(20) UNIQUE NOT NULL,
         destinations TEXT NOT NULL,
+        password VARCHAR(255) NULL,
         rotation_type ENUM('round_robin', 'random') DEFAULT 'round_robin',
         current_index INT DEFAULT 0,
         expires_at TIMESTAMP NULL,

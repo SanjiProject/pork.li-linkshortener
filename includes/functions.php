@@ -191,7 +191,7 @@ function getUserLinks($userId, $page = 1, $limit = 10, $search = '') {
     }
     
     $stmt = $pdo->prepare("
-        SELECT l.*, COUNT(lc.id) as click_count 
+        SELECT l.*, COUNT(lc.id) as click_count, (l.password IS NOT NULL AND l.password != '') as has_password 
         FROM links l 
         LEFT JOIN link_clicks lc ON l.id = lc.link_id 
         $whereClause
@@ -361,7 +361,7 @@ function getBaseUrl() {
     $requestUri = $_SERVER['REQUEST_URI'] ?? '';
     $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
     $documentRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
-     wa
+    
     // Primary check: if HTTP_HOST or SERVER_NAME is pork.li
     if ($host === 'pork.li' || $serverName === 'pork.li') {
         return 'https://pork.li';
@@ -562,5 +562,37 @@ function updateSitemap() {
         error_log('Sitemap update failed: ' . $e->getMessage());
         return ['success' => false, 'error' => $e->getMessage()];
     }
+}
+
+// Check if a link is password protected
+function isLinkPasswordProtected($shortCode) {
+    $pdo = getConnection();
+    $stmt = $pdo->prepare("SELECT password FROM links WHERE short_code = ? AND (expires_at IS NULL OR expires_at > NOW())");
+    $stmt->execute([$shortCode]);
+    $result = $stmt->fetch();
+    
+    return $result && !empty($result['password']);
+}
+
+// Verify password for a link
+function verifyLinkPassword($shortCode, $password) {
+    $pdo = getConnection();
+    $stmt = $pdo->prepare("SELECT password FROM links WHERE short_code = ? AND (expires_at IS NULL OR expires_at > NOW())");
+    $stmt->execute([$shortCode]);
+    $result = $stmt->fetch();
+    
+    if (!$result || empty($result['password'])) {
+        return false;
+    }
+    
+    return password_verify($password, $result['password']);
+}
+
+// Get link with password info (for display purposes)
+function getLinkWithPasswordInfo($shortCode) {
+    $pdo = getConnection();
+    $stmt = $pdo->prepare("SELECT *, (password IS NOT NULL AND password != '') as has_password FROM links WHERE short_code = ? AND (expires_at IS NULL OR expires_at > NOW())");
+    $stmt->execute([$shortCode]);
+    return $stmt->fetch();
 }
 

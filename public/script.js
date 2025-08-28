@@ -132,7 +132,8 @@ class LinkRotator {
                 const linkId = e.target.dataset.linkId;
                 const destinations = JSON.parse(e.target.dataset.destinations || '[]');
                 const rotationType = e.target.dataset.rotationType;
-                this.editLink(linkId, destinations, rotationType);
+                const hasPassword = e.target.dataset.hasPassword === 'true';
+                this.editLink(linkId, destinations, rotationType, hasPassword);
             }
 
             if (e.target.classList.contains('clickable-link')) {
@@ -545,10 +546,17 @@ class LinkRotator {
         }
     }
 
-    editLink(linkId, destinations, rotationType) {
-        // Create edit modal
+    editLink(linkId, destinations, rotationType, hasPassword = false) {
+        // Remove any existing edit modals
+        const existingModal = document.querySelector('.edit-link-modal-overlay');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Create edit modal with unique IDs
+        const modalId = 'edit-modal-' + linkId;
         const modal = document.createElement('div');
-        modal.className = 'edit-modal-overlay';
+        modal.className = 'edit-modal-overlay edit-link-modal-overlay';
         modal.innerHTML = `
             <div class="edit-modal">
                 <div class="edit-modal-header">
@@ -556,13 +564,13 @@ class LinkRotator {
                     <button class="edit-modal-close">&times;</button>
                 </div>
                 <div class="edit-modal-body">
-                    <form id="edit-link-form">
+                    <form id="edit-link-form-${linkId}">
                         <input type="hidden" name="csrf_token" value="">
                         <input type="hidden" name="link_id" value="${linkId}">
                         
                         <div class="form-group">
                             <label class="form-label">Long ass URLs</label>
-                            <div id="edit-destinations-container">
+                            <div id="edit-destinations-container-${linkId}">
                                 ${destinations.map((dest, index) => `
                                     <div class="destination-input">
                                         <input type="url" name="destinations[]" class="form-input destination-url" 
@@ -571,17 +579,40 @@ class LinkRotator {
                                     </div>
                                 `).join('')}
                             </div>
-                            <a href="#" id="edit-add-destination" class="add-destination">
+                            <a href="#" id="edit-add-destination-${linkId}" class="add-destination">
                                 <span>+</span> Add Another Destination
                             </a>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="edit_rotation_type">Rotation Type</label>
-                            <select name="rotation_type" id="edit_rotation_type" class="form-input form-select">
+                            <label class="form-label" for="edit_rotation_type_${linkId}">Rotation Type</label>
+                            <select name="rotation_type" id="edit_rotation_type_${linkId}" class="form-input form-select">
                                 <option value="round_robin" ${rotationType === 'round_robin' ? 'selected' : ''}>Round Robin (Sequential)</option>
                                 <option value="random" ${rotationType === 'random' ? 'selected' : ''}>Random</option>
                             </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">🔒 Password Protection</label>
+                            <div class="password-status-edit">
+                                <p><strong>Current Status:</strong> 
+                                    <span class="status-indicator ${hasPassword ? 'protected' : 'public'}">
+                                        ${hasPassword ? '🔒 Password Protected' : '🌐 Public Access'}
+                                    </span>
+                                </p>
+                            </div>
+                            <select name="password_action" id="edit_password_action_${linkId}" class="form-input form-select">
+                                <option value="keep">Keep current settings</option>
+                                ${hasPassword ? 
+                                    '<option value="remove">Remove password protection</option><option value="set">Change password</option>' :
+                                    '<option value="set">Add password protection</option>'
+                                }
+                            </select>
+                            <div class="form-group" id="edit-password-input-group-${linkId}" style="display: none; margin-top: 1rem;">
+                                <input type="password" name="new_password" id="edit_new_password_${linkId}" class="form-input" 
+                                       placeholder="Enter new password (min 4 characters)" minlength="4">
+                                <small class="form-help">Minimum 4 characters required</small>
+                            </div>
                         </div>
 
                         <div class="edit-modal-actions">
@@ -600,9 +631,29 @@ class LinkRotator {
 
         document.body.appendChild(modal);
 
+        // Handle password action dropdown
+        const passwordActionSelect = modal.querySelector(`#edit_password_action_${linkId}`);
+        const passwordInputGroup = modal.querySelector(`#edit-password-input-group-${linkId}`);
+        
+        if (passwordActionSelect && passwordInputGroup) {
+            passwordActionSelect.addEventListener('change', function() {
+                if (this.value === 'set') {
+                    passwordInputGroup.style.display = 'block';
+                } else {
+                    passwordInputGroup.style.display = 'none';
+                }
+            });
+        }
+
         // Modal event listeners
         const closeModal = () => {
-            document.body.removeChild(modal);
+            try {
+                if (modal && modal.parentNode === document.body) {
+                    document.body.removeChild(modal);
+                }
+            } catch (error) {
+                console.log('Modal already removed or not found');
+            }
         };
 
         modal.querySelector('.edit-modal-close').addEventListener('click', closeModal);
@@ -612,25 +663,29 @@ class LinkRotator {
         });
 
         // Add destination functionality in modal
-        modal.querySelector('#edit-add-destination').addEventListener('click', (e) => {
-            e.preventDefault();
-            const container = modal.querySelector('#edit-destinations-container');
-            const div = document.createElement('div');
-            div.className = 'destination-input';
-            div.innerHTML = `
-                <input type="url" name="destinations[]" class="form-input destination-url" 
-                       placeholder="https://example.com" required>
-                <button type="button" class="remove-destination remove-btn" title="Remove">×</button>
-            `;
-            container.appendChild(div);
-        });
+        const addDestinationBtn = modal.querySelector(`#edit-add-destination-${linkId}`);
+        const destinationsContainer = modal.querySelector(`#edit-destinations-container-${linkId}`);
+        
+        if (addDestinationBtn && destinationsContainer) {
+            addDestinationBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const div = document.createElement('div');
+                div.className = 'destination-input';
+                div.innerHTML = `
+                    <input type="url" name="destinations[]" class="form-input destination-url" 
+                           placeholder="https://example.com" required>
+                    <button type="button" class="remove-destination remove-btn" title="Remove">×</button>
+                `;
+                destinationsContainer.appendChild(div);
+            });
+        }
 
         // Remove destination functionality in modal
         modal.addEventListener('click', (e) => {
             if (e.target.classList.contains('remove-destination')) {
                 e.preventDefault();
-                const container = modal.querySelector('#edit-destinations-container');
-                const destinationInputs = container.querySelectorAll('.destination-input');
+                const container = modal.querySelector(`#edit-destinations-container-${linkId}`);
+                const destinationInputs = container ? container.querySelectorAll('.destination-input') : [];
                 
                 if (destinationInputs.length > 1) {
                     e.target.closest('.destination-input').remove();
@@ -641,10 +696,13 @@ class LinkRotator {
         });
 
         // Form submission
-        modal.querySelector('#edit-link-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.updateLink(e.target, closeModal);
-        });
+        const editForm = modal.querySelector(`#edit-link-form-${linkId}`);
+        if (editForm) {
+            editForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.updateLink(e.target, closeModal);
+            });
+        }
     }
 
     async updateLink(form, closeModal) {
@@ -1136,15 +1194,4 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Link Rotator loaded. Type debugNetwork() in console to see network debug info.');
 });
 
-// PWA Service Worker Registration (if needed)
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-            .then(registration => {
-                console.log('SW registered: ', registration);
-            })
-            .catch(registrationError => {
-                console.log('SW registration failed: ', registrationError);
-            });
-    });
-} 
+// Service Worker registration removed - not needed for this application 

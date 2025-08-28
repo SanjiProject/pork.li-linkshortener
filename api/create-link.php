@@ -43,6 +43,7 @@ if (!verifyCaptcha($captchaAnswer)) {
 $destinations = $_POST['destinations'] ?? [];
 $rotationType = sanitizeInput($_POST['rotation_type'] ?? 'round_robin');
 $customCode = trim($_POST['custom_code'] ?? '');
+$password = trim($_POST['password'] ?? '');
 
 // Validate inputs
 if (empty($destinations)) {
@@ -81,8 +82,19 @@ if (empty($customCode)) {
     $customCode = null;
 }
 
+// Clean password
+if (empty($password)) {
+    $password = null;
+} else {
+    // Validate password strength (minimum 4 characters)
+    if (strlen($password) < 4) {
+        echo json_encode(['success' => false, 'error' => 'Password must be at least 4 characters long']);
+        exit;
+    }
+}
+
 // Create the link
-$result = createLink($cleanDestinations, $userId, $rotationType, $expiresIn, $customCode);
+$result = createLink($cleanDestinations, $userId, $rotationType, $expiresIn, $customCode, $password);
 
 // Return response
 echo json_encode($result);

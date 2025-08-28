@@ -32,6 +32,7 @@ CREATE TABLE `links` (
   `user_id` int DEFAULT NULL,
   `short_code` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
   `destinations` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `rotation_type` enum('round_robin','random') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'round_robin',
   `current_index` int NOT NULL DEFAULT '0',
   `expires_at` timestamp NULL DEFAULT NULL,

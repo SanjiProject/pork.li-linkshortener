@@ -196,6 +196,7 @@ $user = getCurrentUser();
     </main>
 
     <script src="../public/script.js"></script>
+    <script src="../mobile-touch-fix.js"></script>
     <script>
         // Handle password change form
         document.getElementById('password-change-form').addEventListener('submit', async function(e) {

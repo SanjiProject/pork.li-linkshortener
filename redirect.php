@@ -14,13 +14,29 @@ if (empty($shortCode)) {
 // Clean up expired links first
 cleanupExpiredLinks();
 
-// Get the link
-$link = getLinkByShortCode($shortCode);
+// Get the link with password info
+$link = getLinkWithPasswordInfo($shortCode);
 
 if (!$link) {
     http_response_code(404);
     include '404.php';
     exit;
+}
+
+// Check if link is password protected
+if ($link['has_password']) {
+    session_start();
+    
+    // Check if user has already verified this link in current session
+    $verifiedLinks = $_SESSION['verified_links'] ?? [];
+    $isVerified = isset($verifiedLinks[$shortCode]) && 
+                  (time() - $verifiedLinks[$shortCode]) < 3600; // 1 hour validity
+    
+    if (!$isVerified) {
+        // Redirect to password verification page
+        header('Location: /password.php?code=' . urlencode($shortCode));
+        exit;
+    }
 }
 
 // Get the next destination URL

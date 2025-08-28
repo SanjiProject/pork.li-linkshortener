@@ -52,3 +52,4 @@ Please capture the following screenshots and place them in this directory:
 - **Browser Extensions**: Lightshot, GoFullPage (for full page screenshots)
 
 Once you have the screenshots, replace this README.md file with the actual image files named according to the list above.
+

@@ -1,48 +1,12 @@
-# Nginx Configuration for Pork.li URL Shortener
-# Copy these rules to your aaPanel site's Nginx configuration
-
-# Static files and directories - handle FIRST before main location
-location /img/ {
-    expires 1M;
-    add_header Cache-Control "public, immutable";
-    add_header Content-Type "image/webp";
-    try_files $uri =404;
-}
-
-location /public/ {
-    expires 1M;
-    add_header Cache-Control "public, immutable";
-    try_files $uri =404;
-}
-
-# Main location block - prioritize index.php
 location / {
-    index index.php index.html index.htm;
-    try_files $uri $uri/ @rewrite;
+    try_files $uri $uri/ @fallback;
 }
 
-# Rewrite handler for clean URLs and short links
-location @rewrite {
-    # Handle clean URLs for pages
-    rewrite ^/login/?$ /login.php last;
-    rewrite ^/register/?$ /register.php last;
-    rewrite ^/dashboard/?$ /dashboard/index.php last;
-    rewrite ^/admin/?$ /admin/index.php last;
-    rewrite ^/settings/?$ /settings/index.php last;
-    
-    # Handle short links (3-50 characters, alphanumeric, hyphens, underscores)
-    rewrite ^/([a-zA-Z0-9_-]{3,50})/?$ /redirect.php?code=$1 last;
-    
-    # Fallback to 404
+location @fallback {
     rewrite ^ /404.php last;
 }
 
-# Allow system directories to work normally
-location ~ ^/(api|public|dashboard|admin|settings|img)/ {
-    try_files $uri $uri/ /404.php;
-}
 
-# Block access to sensitive directories
 location ~ ^/(config|includes)/ {
     deny all;
     return 404;
@@ -54,47 +18,21 @@ location ~ /\.(env|htaccess|gitignore|ini|log|conf|sql)$ {
     return 404;
 }
 
-# PHP handling
-location ~ \.php$ {
-    try_files $uri =404;
-    fastcgi_split_path_info ^(.+\.php)(/.+)$;
-    fastcgi_pass unix:/tmp/php-cgi-74.sock;  # Adjust PHP version as needed
-    fastcgi_index index.php;
-    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    include fastcgi_params;
+# Allow system directories to work normally
+location ~ ^/(api|public|dashboard|admin|settings)/ {
+    try_files $uri $uri/ /404.php;
 }
 
-# Static files caching with proper MIME types
-location ~* \.(css)$ {
-    expires 1M;
-    add_header Cache-Control "public, immutable";
-    add_header Content-Type "text/css";
-    try_files $uri =404;
+# Clean URLs for login/register
+location = /login {
+    try_files $uri /login.php;
 }
 
-location ~* \.(js)$ {
-    expires 1M;
-    add_header Cache-Control "public, immutable";
-    add_header Content-Type "application/javascript";
-    try_files $uri =404;
+location = /register {
+    try_files $uri /register.php;
 }
 
-location ~* \.(webp)$ {
-    expires 1M;
-    add_header Cache-Control "public, immutable";
-    add_header Content-Type "image/webp";
-    try_files $uri =404;
+# Short link handler - only for single path segments that aren't system paths
+location ~ ^/([a-zA-Z0-9_-]+)/?$ {
+    try_files $uri /redirect.php?code=$1;
 }
-
-location ~* \.(png|jpg|jpeg|gif|ico|svg)$ {
-    expires 1M;
-    add_header Cache-Control "public, immutable";
-    try_files $uri =404;
-}
-
-# Security headers
-add_header X-Frame-Options "SAMEORIGIN" always;
-add_header X-XSS-Protection "1; mode=block" always;
-add_header X-Content-Type-Options "nosniff" always;
-add_header Referrer-Policy "no-referrer-when-downgrade" always;
-add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;

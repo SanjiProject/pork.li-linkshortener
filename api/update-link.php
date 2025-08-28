@@ -34,6 +34,8 @@ if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
 $linkId = (int) ($_POST['link_id'] ?? 0);
 $destinations = $_POST['destinations'] ?? [];
 $rotationType = sanitizeInput($_POST['rotation_type'] ?? 'round_robin');
+$passwordAction = $_POST['password_action'] ?? 'keep'; // keep, set, remove
+$newPassword = trim($_POST['new_password'] ?? '');
 
 // Validate inputs
 if (empty($linkId)) {
@@ -74,6 +76,24 @@ if (count($cleanDestinations) > 20) {
     exit;
 }
 
+// Validate password action
+if (!in_array($passwordAction, ['keep', 'set', 'remove'])) {
+    echo json_encode(['success' => false, 'error' => 'Invalid password action']);
+    exit;
+}
+
+// Validate password if setting
+if ($passwordAction === 'set') {
+    if (empty($newPassword)) {
+        echo json_encode(['success' => false, 'error' => 'Password is required when setting password protection']);
+        exit;
+    }
+    if (strlen($newPassword) < 4) {
+        echo json_encode(['success' => false, 'error' => 'Password must be at least 4 characters long']);
+        exit;
+    }
+}
+
 // Get current user
 $user = getCurrentUser();
 
@@ -89,22 +109,52 @@ try {
         exit;
     }
     
-    // Update the link
+    // Handle password update based on action
     $destinationsJson = json_encode($cleanDestinations);
-    $stmt = $pdo->prepare("
-        UPDATE links 
-        SET destinations = ?, rotation_type = ?, current_index = 0, updated_at = NOW() 
-        WHERE id = ? AND user_id = ?
-    ");
+    $passwordValue = null;
+    $updatePassword = false;
     
-    if ($stmt->execute([$destinationsJson, $rotationType, $linkId, $user['id']])) {
+    if ($passwordAction === 'set') {
+        $passwordValue = password_hash($newPassword, PASSWORD_DEFAULT);
+        $updatePassword = true;
+    } elseif ($passwordAction === 'remove') {
+        $passwordValue = null;
+        $updatePassword = true;
+    }
+    
+    // Update the link
+    if ($updatePassword) {
+        $stmt = $pdo->prepare("
+            UPDATE links 
+            SET destinations = ?, rotation_type = ?, password = ?, current_index = 0, updated_at = NOW() 
+            WHERE id = ? AND user_id = ?
+        ");
+        $executeParams = [$destinationsJson, $rotationType, $passwordValue, $linkId, $user['id']];
+    } else {
+        $stmt = $pdo->prepare("
+            UPDATE links 
+            SET destinations = ?, rotation_type = ?, current_index = 0, updated_at = NOW() 
+            WHERE id = ? AND user_id = ?
+        ");
+        $executeParams = [$destinationsJson, $rotationType, $linkId, $user['id']];
+    }
+    
+    if ($stmt->execute($executeParams)) {
         // Update sitemap automatically
         updateSitemap();
         
+        $message = 'Link updated successfully';
+        if ($passwordAction === 'set') {
+            $message .= ' with password protection enabled';
+        } elseif ($passwordAction === 'remove') {
+            $message .= ' and password protection removed';
+        }
+        
         echo json_encode([
             'success' => true, 
-            'message' => 'Link updated successfully',
-            'destinations_count' => count($cleanDestinations)
+            'message' => $message,
+            'destinations_count' => count($cleanDestinations),
+            'password_action' => $passwordAction
         ]);
     } else {
         echo json_encode(['success' => false, 'error' => 'Failed to update link']);
