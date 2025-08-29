@@ -129,11 +129,9 @@ class LinkRotator {
 
             if (e.target.classList.contains('edit-link')) {
                 e.preventDefault();
-                const linkId = e.target.dataset.linkId;
-                const destinations = JSON.parse(e.target.dataset.destinations || '[]');
-                const rotationType = e.target.dataset.rotationType;
-                const hasPassword = e.target.dataset.hasPassword === 'true';
-                this.editLink(linkId, destinations, rotationType, hasPassword);
+                console.log('LinkRotator edit clicked - but disabled');
+                // Edit functionality completely disabled - dashboard and admin pages have their own edit modals
+                return;
             }
 
             if (e.target.classList.contains('clickable-link')) {
@@ -547,162 +545,8 @@ class LinkRotator {
     }
 
     editLink(linkId, destinations, rotationType, hasPassword = false) {
-        // Remove any existing edit modals
-        const existingModal = document.querySelector('.edit-link-modal-overlay');
-        if (existingModal) {
-            existingModal.remove();
-        }
-        
-        // Create edit modal with unique IDs
-        const modalId = 'edit-modal-' + linkId;
-        const modal = document.createElement('div');
-        modal.className = 'edit-modal-overlay edit-link-modal-overlay';
-        modal.innerHTML = `
-            <div class="edit-modal">
-                <div class="edit-modal-header">
-                    <h3>Edit Link Destinations</h3>
-                    <button class="edit-modal-close">&times;</button>
-                </div>
-                <div class="edit-modal-body">
-                    <form id="edit-link-form-${linkId}">
-                        <input type="hidden" name="csrf_token" value="">
-                        <input type="hidden" name="link_id" value="${linkId}">
-                        
-                        <div class="form-group">
-                            <label class="form-label">Long ass URLs</label>
-                            <div id="edit-destinations-container-${linkId}">
-                                ${destinations.map((dest, index) => `
-                                    <div class="destination-input">
-                                        <input type="url" name="destinations[]" class="form-input destination-url" 
-                                               value="${dest}" required>
-                                        ${destinations.length > 1 ? '<button type="button" class="remove-destination remove-btn" title="Remove">×</button>' : ''}
-                                    </div>
-                                `).join('')}
-                            </div>
-                            <a href="#" id="edit-add-destination-${linkId}" class="add-destination">
-                                <span>+</span> Add Another Destination
-                            </a>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label" for="edit_rotation_type_${linkId}">Rotation Type</label>
-                            <select name="rotation_type" id="edit_rotation_type_${linkId}" class="form-input form-select">
-                                <option value="round_robin" ${rotationType === 'round_robin' ? 'selected' : ''}>Round Robin (Sequential)</option>
-                                <option value="random" ${rotationType === 'random' ? 'selected' : ''}>Random</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">🔒 Password Protection</label>
-                            <div class="password-status-edit">
-                                <p><strong>Current Status:</strong> 
-                                    <span class="status-indicator ${hasPassword ? 'protected' : 'public'}">
-                                        ${hasPassword ? '🔒 Password Protected' : '🌐 Public Access'}
-                                    </span>
-                                </p>
-                            </div>
-                            <select name="password_action" id="edit_password_action_${linkId}" class="form-input form-select">
-                                <option value="keep">Keep current settings</option>
-                                ${hasPassword ? 
-                                    '<option value="remove">Remove password protection</option><option value="set">Change password</option>' :
-                                    '<option value="set">Add password protection</option>'
-                                }
-                            </select>
-                            <div class="form-group" id="edit-password-input-group-${linkId}" style="display: none; margin-top: 1rem;">
-                                <input type="password" name="new_password" id="edit_new_password_${linkId}" class="form-input" 
-                                       placeholder="Enter new password (min 4 characters)" minlength="4">
-                                <small class="form-help">Minimum 4 characters required</small>
-                            </div>
-                        </div>
-
-                        <div class="edit-modal-actions">
-                            <button type="button" class="btn btn-secondary edit-modal-cancel">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Update Link</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        `;
-
-        // Add CSRF token
-        const csrfInput = modal.querySelector('input[name="csrf_token"]');
-        const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
-        csrfInput.value = csrfToken;
-
-        document.body.appendChild(modal);
-
-        // Handle password action dropdown
-        const passwordActionSelect = modal.querySelector(`#edit_password_action_${linkId}`);
-        const passwordInputGroup = modal.querySelector(`#edit-password-input-group-${linkId}`);
-        
-        if (passwordActionSelect && passwordInputGroup) {
-            passwordActionSelect.addEventListener('change', function() {
-                if (this.value === 'set') {
-                    passwordInputGroup.style.display = 'block';
-                } else {
-                    passwordInputGroup.style.display = 'none';
-                }
-            });
-        }
-
-        // Modal event listeners
-        const closeModal = () => {
-            try {
-                if (modal && modal.parentNode === document.body) {
-                    document.body.removeChild(modal);
-                }
-            } catch (error) {
-                console.log('Modal already removed or not found');
-            }
-        };
-
-        modal.querySelector('.edit-modal-close').addEventListener('click', closeModal);
-        modal.querySelector('.edit-modal-cancel').addEventListener('click', closeModal);
-        modal.querySelector('.edit-modal-overlay').addEventListener('click', (e) => {
-            if (e.target === modal) closeModal();
-        });
-
-        // Add destination functionality in modal
-        const addDestinationBtn = modal.querySelector(`#edit-add-destination-${linkId}`);
-        const destinationsContainer = modal.querySelector(`#edit-destinations-container-${linkId}`);
-        
-        if (addDestinationBtn && destinationsContainer) {
-            addDestinationBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const div = document.createElement('div');
-                div.className = 'destination-input';
-                div.innerHTML = `
-                    <input type="url" name="destinations[]" class="form-input destination-url" 
-                           placeholder="https://example.com" required>
-                    <button type="button" class="remove-destination remove-btn" title="Remove">×</button>
-                `;
-                destinationsContainer.appendChild(div);
-            });
-        }
-
-        // Remove destination functionality in modal
-        modal.addEventListener('click', (e) => {
-            if (e.target.classList.contains('remove-destination')) {
-                e.preventDefault();
-                const container = modal.querySelector(`#edit-destinations-container-${linkId}`);
-                const destinationInputs = container ? container.querySelectorAll('.destination-input') : [];
-                
-                if (destinationInputs.length > 1) {
-                    e.target.closest('.destination-input').remove();
-                } else {
-                    this.showAlert('At least one destination URL is required', 'error');
-                }
-            }
-        });
-
-        // Form submission
-        const editForm = modal.querySelector(`#edit-link-form-${linkId}`);
-        if (editForm) {
-            editForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.updateLink(e.target, closeModal);
-            });
-        }
+        // Completely disabled - dashboard and admin pages have their own edit modals
+        return;
     }
 
     async updateLink(form, closeModal) {
@@ -1186,6 +1030,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const linkRotator = new LinkRotator();
     window.captchaManager = new CaptchaManager();
     new MobileOptimizer();
+    
+    // Make linkRotator available globally for dashboard
+    window.linkRotator = linkRotator;
     
     // Make debug function available globally
     window.debugNetwork = () => linkRotator.debugNetworkSettings();

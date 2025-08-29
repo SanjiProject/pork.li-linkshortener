@@ -291,7 +291,8 @@ $activeLinks = $stmt->fetchColumn();
                                             </button>
                                             <button class="btn btn-sm btn-secondary edit-link" 
                                                     data-link-id="<?php echo $link['id']; ?>"
-                                                    data-destinations='<?php echo json_encode($link['destinations']); ?>'
+                                                    data-short-code="<?php echo $link['short_code']; ?>"
+                                                    data-destinations='<?php echo htmlspecialchars(json_encode($link['destinations'])); ?>'
                                                     data-rotation-type="<?php echo $link['rotation_type']; ?>"
                                                     data-has-password="<?php echo !empty($link['has_password']) ? 'true' : 'false'; ?>">
                                                 Edit
@@ -340,10 +341,8 @@ $activeLinks = $stmt->fetchColumn();
         </div>
     </main>
 
-    <script src="../public/script.js"></script>
-    <script src="../mobile-touch-fix.js"></script>
     <script>
-        // Initialize dashboard analytics
+        // Dashboard-specific script - no script.js conflicts now
         document.addEventListener('DOMContentLoaded', function() {
             // View analytics buttons
             document.addEventListener('click', function(e) {
@@ -351,6 +350,18 @@ $activeLinks = $stmt->fetchColumn();
                     const linkId = e.target.dataset.linkId;
                     const shortCode = e.target.dataset.shortCode;
                     showAnalytics(linkId, shortCode);
+                }
+                
+                // Edit link buttons
+                if (e.target.classList.contains('edit-link')) {
+                    e.preventDefault();
+                    console.log('Dashboard edit button clicked');
+                    
+                    const linkId = e.target.dataset.linkId;
+                    const shortCode = e.target.dataset.shortCode;
+                    const destinations = JSON.parse(e.target.dataset.destinations);
+                    const rotationType = e.target.dataset.rotationType;
+                    showEditModal(linkId, shortCode, destinations, rotationType);
                 }
                 
                 // Password management buttons
@@ -612,6 +623,147 @@ $activeLinks = $stmt->fetchColumn();
             }
         }
 
+        function showEditModal(linkId, shortCode, destinations, rotationType) {
+            const baseUrl = getBaseUrl();
+            
+            // Create edit modal
+            const modal = document.createElement('div');
+            modal.className = 'edit-modal-overlay';
+            modal.innerHTML = `
+                <div class="edit-modal">
+                    <div class="edit-modal-header">
+                        <h3>Edit Link: /${shortCode}</h3>
+                        <button class="edit-modal-close">&times;</button>
+                    </div>
+                    <div class="edit-modal-body">
+                        <form id="edit-link-form">
+                            <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+                            <input type="hidden" name="link_id" value="${linkId}">
+                            
+                            <div class="form-group">
+                                <label class="form-label">Long ass URLs</label>
+                                <div id="edit-destinations-container">
+                                    ${destinations.map(url => `
+                                        <div class="destination-input">
+                                            <input type="url" name="destinations[]" class="form-input destination-url" 
+                                                   value="${url}" required>
+                                            <button type="button" class="remove-destination remove-btn" title="Remove">×</button>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <a href="#" id="edit-add-destination" class="add-destination">
+                                    <span>+</span> Add Another Destination
+                                </a>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="edit_rotation_type">Rotation Type</label>
+                                <select name="rotation_type" id="edit_rotation_type" class="form-input form-select">
+                                    <option value="round_robin" ${rotationType === 'round_robin' ? 'selected' : ''}>Round Robin (Sequential)</option>
+                                    <option value="random" ${rotationType === 'random' ? 'selected' : ''}>Random</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="edit-modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="this.closest('.edit-modal-overlay').remove()">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="save-link-changes">Save Changes</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Close modal functionality
+            const closeModal = () => document.body.removeChild(modal);
+            modal.querySelector('.edit-modal-close').addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+
+            // Add destination functionality
+            modal.querySelector('#edit-add-destination').addEventListener('click', function(e) {
+                e.preventDefault();
+                const container = modal.querySelector('#edit-destinations-container');
+                const div = document.createElement('div');
+                div.className = 'destination-input';
+                div.innerHTML = `
+                    <input type="url" name="destinations[]" class="form-input destination-url" 
+                           placeholder="https://example.com" required>
+                    <button type="button" class="remove-destination remove-btn" title="Remove">×</button>
+                `;
+                container.appendChild(div);
+            });
+
+            // Remove destination functionality
+            modal.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-destination')) {
+                    const container = modal.querySelector('#edit-destinations-container');
+                    if (container.children.length > 1) {
+                        e.target.parentElement.remove();
+                    } else {
+                        alert('At least one destination URL is required');
+                    }
+                }
+            });
+
+            // Save changes functionality
+            modal.querySelector('#save-link-changes').addEventListener('click', async function() {
+                const form = modal.querySelector('#edit-link-form');
+                const formData = new FormData(form);
+                
+                // Get all destination URLs
+                const destinationInputs = form.querySelectorAll('input[name="destinations[]"]');
+                const destinationUrls = Array.from(destinationInputs).map(input => input.value.trim()).filter(url => url);
+                
+                if (destinationUrls.length === 0) {
+                    alert('At least one destination URL is required');
+                    return;
+                }
+
+                // Validate URLs
+                for (let url of destinationUrls) {
+                    try {
+                        new URL(url);
+                    } catch {
+                        alert('Invalid URL: ' + url);
+                        return;
+                    }
+                }
+
+                this.textContent = 'Saving...';
+                this.disabled = true;
+
+                try {
+                    const updateData = new FormData();
+                    updateData.append('csrf_token', '<?php echo generateCSRFToken(); ?>');
+                    updateData.append('link_id', linkId);
+                    destinationUrls.forEach(url => updateData.append('destinations[]', url));
+                    updateData.append('rotation_type', form.querySelector('[name="rotation_type"]').value);
+
+                    const response = await fetch(baseUrl + '/api/update-link.php', {
+                        method: 'POST',
+                        body: updateData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        alert('Link updated successfully!');
+                        closeModal();
+                        window.location.reload();
+                    } else {
+                        alert('Failed to update link: ' + (result.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    alert('Network error. Please try again.');
+                } finally {
+                    this.textContent = 'Save Changes';
+                    this.disabled = false;
+                }
+            });
+        }
+
         function getBaseUrl() {
             let path = window.location.pathname;
             if (path.endsWith('/dashboard/') || path.endsWith('/dashboard')) {
@@ -620,5 +772,12 @@ $activeLinks = $stmt->fetchColumn();
             return path || '';
         }
     </script>
+    
+    <!-- Disable script.js on dashboard to prevent conflicts -->
+    <script>
+        // Prevent LinkRotator from interfering
+        window.LinkRotator = function() { return { init: function() {} }; };
+    </script>
+    <script src="../mobile-touch-fix.js"></script>
 </body>
 </html> 

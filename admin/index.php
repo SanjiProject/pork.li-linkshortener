@@ -377,7 +377,11 @@ $recentClicks = $stmt->fetchColumn();
         </div>
     </main>
 
-    <script src="../public/script.js"></script>
+    <!-- Disable script.js on admin page to prevent conflicts -->
+    <script>
+        // Prevent LinkRotator from interfering
+        window.LinkRotator = function() { return { init: function() {} }; };
+    </script>
     <script src="../mobile-touch-fix.js"></script>
     <script>
         // Get base URL for API calls
