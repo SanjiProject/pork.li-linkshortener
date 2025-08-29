@@ -467,6 +467,13 @@ $recentClicks = $stmt->fetchColumn();
                     const rotationType = e.target.dataset.rotationType;
                     showEditModal(linkId, shortCode, destinations, rotationType);
                 }
+                
+                // Clickable links for copying
+                if (e.target.classList.contains('clickable-link')) {
+                    e.preventDefault();
+                    const url = e.target.dataset.url;
+                    copyToClipboardWithFeedback(url, e.target);
+                }
             });
         });
 
@@ -703,6 +710,73 @@ $recentClicks = $stmt->fetchColumn();
                     this.disabled = false;
                 }
             });
+        }
+
+        // Copy to clipboard with visual feedback
+        async function copyToClipboardWithFeedback(text, element) {
+            try {
+                // Try modern clipboard API first
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    textArea.style.top = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    document.execCommand('copy');
+                    textArea.remove();
+                }
+                
+                // Show success feedback
+                showCopyFeedback(element, 'Link copied successfully!', 'success');
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                showCopyFeedback(element, 'Failed to copy link', 'error');
+            }
+        }
+
+        // Show visual feedback for copy operation
+        function showCopyFeedback(element, message, type) {
+            // Create feedback element
+            const feedback = document.createElement('div');
+            feedback.textContent = message;
+            feedback.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#10b981' : '#ef4444'};
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 500;
+                z-index: 10000;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+            `;
+            
+            document.body.appendChild(feedback);
+            
+            // Animate in
+            setTimeout(() => {
+                feedback.style.transform = 'translateX(0)';
+            }, 10);
+            
+            // Animate out and remove
+            setTimeout(() => {
+                feedback.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (feedback.parentNode) {
+                        feedback.parentNode.removeChild(feedback);
+                    }
+                }, 300);
+            }, 2000);
         }
 
         function exportData() {
