@@ -3,7 +3,7 @@
 // Update these settings according to your aaPanel database configuration
 define('DB_HOST', 'localhost');
 define('DB_USER', 'porkli'); // Update with your aaPanel MySQL username
-define('DB_PASS', 'KPy4eBGCY2TG4wbF'); // Update with your aaPanel MySQL password
+define('DB_PASS', 'USEYOURPASSWORD'); // Update with your aaPanel MySQL password
 define('DB_NAME', 'porkli'); // Update with your database name
 define('DB_PORT', '3306'); // Default MySQL port
 
